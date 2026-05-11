@@ -10,7 +10,7 @@ function createContext() {
 }
 
 describe('createForkCommandManager', () => {
-  test('registers the /fork-session command', () => {
+  test('registers the /fork command', () => {
     const manager = createForkCommandManager(
       createContext(),
       createForkState(),
@@ -20,9 +20,9 @@ describe('createForkCommandManager', () => {
     manager.registerCommand(config);
 
     const commands = config.command as Record<string, { template: string }>;
-    expect(commands['fork-session']).toBeDefined();
-    expect(commands['fork-session'].template).toContain('fork_session');
-    expect(commands['fork-session'].template).toContain('$ARGUMENTS');
+    expect(commands.fork).toBeDefined();
+    expect(commands.fork.template).toContain('fork_session');
+    expect(commands.fork.template).toContain('$ARGUMENTS');
   });
 
   test('marks child sessions of fork workers with the same source', () => {

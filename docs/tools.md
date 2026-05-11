@@ -40,7 +40,7 @@ Fork the current orchestrator context into a boomerang-style worker session.
 
 | Command / Tool | Description |
 |----------------|-------------|
-| `/fork-session <goal>` | Ask the current orchestrator to pass compact context into a forked worker session |
+| `/fork <goal>` | Ask the current orchestrator to pass compact context into a forked worker session |
 | `fork_session` | Runs a child fork worker session and returns its summary to the caller |
 | `read_session` | Reads transcript details from the source session when the fork prompt is missing specifics |
 

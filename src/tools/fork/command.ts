@@ -1,13 +1,13 @@
 /**
  * Command registration manager for fork functionality.
  *
- * Manages the /fork-session slash command registration and template.
+ * Manages the /fork slash command registration and template.
  */
 
 import type { PluginInput } from '@opencode-ai/plugin';
 import type { ForkState } from './state';
 
-const COMMAND_NAME = 'fork-session';
+const COMMAND_NAME = 'fork';
 
 /**
  * Compact command template that lets the user request drive fork behavior.
@@ -24,8 +24,7 @@ Call fork_session with the worker prompt and clearly relevant files:
 /**
  * Creates a fork command manager.
  *
- * Handles registration of the /fork-session command and fork session state
- * events.
+ * Handles registration of the /fork command and fork session state events.
  */
 export function createForkCommandManager(
   _ctx: PluginInput,
@@ -33,7 +32,7 @@ export function createForkCommandManager(
   _processedSessions?: Set<string>,
 ) {
   /**
-   * Register the /fork-session command in the OpenCode config.
+   * Register the /fork command in the OpenCode config.
    */
   function registerCommand(opencodeConfig: Record<string, unknown>): void {
     const configCommand = opencodeConfig.command as

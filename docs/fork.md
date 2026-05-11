@@ -1,14 +1,13 @@
 # Fork
 
-`/fork-session` starts a boomerang-style fork of the current orchestrator
-session. The fork receives the best compact context the parent can provide, does
-the requested work, then returns a compact completion summary to the original
-session.
+`/fork` starts a boomerang-style fork of the current orchestrator session. The
+fork receives the best compact context the parent can provide, does the requested
+work, then returns a compact completion summary to the original session.
 
 ## Usage
 
 ```text
-/fork-session <what the forked orchestrator should do>
+/fork <what the forked orchestrator should do>
 ```
 
 The command asks the current orchestrator to call `fork_session` with a compact
@@ -35,9 +34,9 @@ real child session. Existing session-depth and pane cleanup handling apply.
 The user prompt controls scope. Keep it direct:
 
 ```text
-/fork-session finish the docs and run the relevant checks
-/fork-session investigate the flaky auth test and report what changed
-/fork-session implement the small UI polish we discussed
+/fork finish the docs and run the relevant checks
+/fork investigate the flaky auth test and report what changed
+/fork implement the small UI polish we discussed
 ```
 
 The fork prompt should stay compact: pass what the fork needs to act without

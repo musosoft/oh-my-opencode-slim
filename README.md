@@ -490,7 +490,7 @@ Use this section as a map: start with installation, then jump to features, confi
 | **[Session Management](docs/session-management.md)** | Reuse recent child-agent sessions with short aliases instead of starting over |
 | **[Todo Continuation](docs/todo-continuation.md)** | Auto-continue orchestrator sessions with cooldowns and safety checks |
 | **[Preset Switching](docs/preset-switching.md)** | Switch agent model presets at runtime with `/preset` |
-| **[Fork](docs/fork.md)** | Fork the current orchestrator context with `/fork-session`, do the requested work, and return a summary to the main session |
+| **[Fork](docs/fork.md)** | Fork the current orchestrator context with `/fork`, do the requested work, and return a summary to the main session |
 | **[Codemap](docs/codemap.md)** | Generate hierarchical codemaps to understand large codebases faster |
 | **[Interview](docs/interview.md)** | Turn rough ideas into a structured markdown spec through a browser-based Q&A flow |
 | **[Divoom Display](docs/divoom.md)** | Mirror orchestrator and specialist-agent activity to a Divoom MiniToo Bluetooth display |
