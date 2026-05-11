@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { createHandoffCommandManager } from './command';
-import { createHandoffState } from './state';
+import { createForkCommandManager } from './command';
+import { createForkState } from './state';
 
 function createContext() {
   return {
@@ -9,26 +9,26 @@ function createContext() {
   } as any;
 }
 
-describe('createHandoffCommandManager', () => {
-  test('registers the /handoff command', () => {
-    const manager = createHandoffCommandManager(
+describe('createForkCommandManager', () => {
+  test('registers the /fork-session command', () => {
+    const manager = createForkCommandManager(
       createContext(),
-      createHandoffState(),
+      createForkState(),
     );
     const config: Record<string, unknown> = {};
 
     manager.registerCommand(config);
 
     const commands = config.command as Record<string, { template: string }>;
-    expect(commands.handoff).toBeDefined();
-    expect(commands.handoff.template).toContain('handoff_session');
-    expect(commands.handoff.template).toContain('$ARGUMENTS');
+    expect(commands['fork-session']).toBeDefined();
+    expect(commands['fork-session'].template).toContain('fork_session');
+    expect(commands['fork-session'].template).toContain('$ARGUMENTS');
   });
 
-  test('marks child sessions of handoff workers with the same source', () => {
-    const state = createHandoffState();
+  test('marks child sessions of fork workers with the same source', () => {
+    const state = createForkState();
     state.markSession('ses_worker', 'ses_source');
-    const manager = createHandoffCommandManager(createContext(), state);
+    const manager = createForkCommandManager(createContext(), state);
 
     manager.handleEvent({
       event: {
@@ -41,8 +41,8 @@ describe('createHandoffCommandManager', () => {
   });
 
   test('does not mark unrelated child sessions', () => {
-    const state = createHandoffState();
-    const manager = createHandoffCommandManager(createContext(), state);
+    const state = createForkState();
+    const manager = createForkCommandManager(createContext(), state);
 
     manager.handleEvent({
       event: {
@@ -51,13 +51,13 @@ describe('createHandoffCommandManager', () => {
       },
     });
 
-    expect(state.isHandoffSession('ses_child')).toBe(false);
+    expect(state.isForkSession('ses_child')).toBe(false);
   });
 
-  test('unmarks deleted handoff sessions', () => {
-    const state = createHandoffState();
+  test('unmarks deleted fork sessions', () => {
+    const state = createForkState();
     state.markSession('ses_worker', 'ses_source');
-    const manager = createHandoffCommandManager(createContext(), state);
+    const manager = createForkCommandManager(createContext(), state);
 
     manager.handleEvent({
       event: {
@@ -66,6 +66,6 @@ describe('createHandoffCommandManager', () => {
       },
     });
 
-    expect(state.isHandoffSession('ses_worker')).toBe(false);
+    expect(state.isForkSession('ses_worker')).toBe(false);
   });
 });

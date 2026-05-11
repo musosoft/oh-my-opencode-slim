@@ -1,22 +1,21 @@
 /**
- * Handoff functionality for session continuation.
+ * Fork functionality for orchestrator worker sessions.
  *
- * Provides tools and commands for creating handoff prompts that allow
- * work to continue seamlessly in new sessions with preloaded context.
+ * Provides tools and commands for forking current context into child workers.
  */
 
 export {
-  createHandoffCommandManager,
-  type HandoffCommandManager,
+  createForkCommandManager,
+  type ForkCommandManager,
 } from './command';
 export {
   buildSyntheticFileParts,
   FILE_REGEX,
   parseFileReferences,
 } from './files';
-export { createHandoffState, type HandoffState } from './state';
+export { createForkState, type ForkState } from './state';
 export {
-  createHandoffSessionTool,
+  createForkSessionTool,
   createReadSessionTool,
   type OpencodeClient,
 } from './tools';

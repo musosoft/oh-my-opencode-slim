@@ -41,9 +41,9 @@ import {
   ast_grep_replace,
   ast_grep_search,
   createCouncilTool,
-  createHandoffCommandManager,
-  createHandoffSessionTool,
-  createHandoffState,
+  createForkCommandManager,
+  createForkSessionTool,
+  createForkState,
   createPresetManager,
   createReadSessionTool,
   createWebfetchTool,
@@ -146,8 +146,8 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let rewriteDisplayNameMentions: ReturnType<
     typeof createDisplayNameMentionRewriter
   >;
-  let handoffCommandManager: ReturnType<typeof createHandoffCommandManager>;
-  let handoffState: ReturnType<typeof createHandoffState>;
+  let forkCommandManager: ReturnType<typeof createForkCommandManager>;
+  let forkState: ReturnType<typeof createForkState>;
 
   // Counters for post-init health check (set inside try, checked outside)
   let toolCount = 0;
@@ -318,15 +318,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     presetManager = createPresetManager(ctx, config);
     divoomManager = createDivoomManager(config.divoom);
 
-    handoffState = createHandoffState();
-    handoffCommandManager = createHandoffCommandManager(ctx, handoffState);
+    forkState = createForkState();
+    forkCommandManager = createForkCommandManager(ctx, forkState);
 
     toolCount =
       Object.keys(councilTools).length +
       Object.keys(todoContinuationHook.tool).length +
       1 + // webfetch
       2 + // ast_grep_search, ast_grep_replace
-      2; // handoff_session, read_session
+      2; // fork_session, read_session
   } catch (err) {
     // Plugin init failed: log visibly before re-throwing so the user
     // sees something actionable instead of a silent "loaded but empty".
@@ -396,12 +396,8 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       ...todoContinuationHook.tool,
       ast_grep_search,
       ast_grep_replace,
-      handoff_session: createHandoffSessionTool(
-        ctx,
-        handoffState,
-        depthTracker,
-      ),
-      read_session: createReadSessionTool(ctx.client, handoffState),
+      fork_session: createForkSessionTool(ctx, forkState, depthTracker),
+      read_session: createReadSessionTool(ctx.client, forkState),
     },
 
     mcp: mcps,
@@ -737,7 +733,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
       interviewManager.registerCommand(opencodeConfig);
       presetManager.registerCommand(opencodeConfig);
-      handoffCommandManager.registerCommand(opencodeConfig);
+      forkCommandManager.registerCommand(opencodeConfig);
     },
 
     event: async (input) => {
@@ -815,7 +811,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         },
       );
 
-      handoffCommandManager.handleEvent(
+      forkCommandManager.handleEvent(
         input as {
           event: {
             type: string;

@@ -1,11 +1,11 @@
-export interface HandoffState {
+export interface ForkState {
   markSession(sessionID: string, sourceSessionID: string): void;
   unmarkSession(sessionID: string): void;
-  isHandoffSession(sessionID: string): boolean;
+  isForkSession(sessionID: string): boolean;
   sourceFor(sessionID: string): string | undefined;
 }
 
-export function createHandoffState(): HandoffState {
+export function createForkState(): ForkState {
   const sourceBySession = new Map<string, string>();
 
   return {
@@ -15,7 +15,7 @@ export function createHandoffState(): HandoffState {
     unmarkSession(sessionID: string): void {
       sourceBySession.delete(sessionID);
     },
-    isHandoffSession(sessionID: string): boolean {
+    isForkSession(sessionID: string): boolean {
       return sourceBySession.has(sessionID);
     },
     sourceFor(sessionID: string): string | undefined {

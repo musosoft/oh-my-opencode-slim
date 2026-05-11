@@ -34,23 +34,23 @@ Fast, structural code search and refactoring — more powerful than plain text g
 
 ---
 
-## Session Handoff
+## Fork
 
-Run a boomerang-style worker session and return its summary to the caller.
+Fork the current orchestrator context into a boomerang-style worker session.
 
 | Command / Tool | Description |
 |----------------|-------------|
-| `/handoff <goal>` | Ask the current agent to summarize context, relevant files, decisions, and next steps for a new session |
-| `handoff_session` | Runs a child handoff worker session and returns its summary to the caller |
-| `read_session` | Reads transcript details from the source session when the handoff summary is missing specifics |
+| `/fork-session <goal>` | Ask the current orchestrator to pass compact context into a forked worker session |
+| `fork_session` | Runs a child fork worker session and returns its summary to the caller |
+| `read_session` | Reads transcript details from the source session when the fork prompt is missing specifics |
 
-Handoff prompts include `@file` references. Slim creates a real child session
-with the current session as `parentID`, lets the handoff worker read the provided
-context and files, then returns the worker's `<handoff_summary>` back to the
-main session as normal tool output. In tmux/zellij this appears like other child
-agent work: a pane can open for the worker and close when the summary returns.
+Fork prompts include `@file` references. Slim creates a real child session with
+the current session as `parentID`, lets the forked orchestrator use the provided
+context and files, then returns the worker's `<fork_summary>` back to the main
+session as normal tool output. In tmux/zellij this appears like other child agent
+work: a pane can open for the worker and close when the summary returns.
 
-See [Handoff](handoff.md) for the full workflow.
+See [Fork](fork.md) for the full workflow.
 
 ---
 

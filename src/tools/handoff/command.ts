@@ -1,41 +1,39 @@
 /**
- * Command registration manager for handoff functionality.
+ * Command registration manager for fork functionality.
  *
- * Manages the /handoff slash command registration and the HANDOFF_COMMAND
- * template that guides the AI in generating handoff prompts.
+ * Manages the /fork-session slash command registration and template.
  */
 
 import type { PluginInput } from '@opencode-ai/plugin';
-import type { HandoffState } from './state';
+import type { ForkState } from './state';
 
-const COMMAND_NAME = 'handoff';
+const COMMAND_NAME = 'fork-session';
 
 /**
- * The handoff command template that guides the AI in generating handoff
- * prompts.
+ * Compact command template that lets the user request drive fork behavior.
  */
-const HANDOFF_COMMAND_TEMPLATE = `Start a handoff worker session.
+const FORK_COMMAND_TEMPLATE = `Fork the current orchestrator context into a worker session.
 
-Use the user's request below as the source of truth for what the worker should do. Keep scope and emphasis exactly aligned with the user's request.
+Use the user's request as the source of truth. Pass the best current context, decisions, constraints, and file references the fork needs. Keep it compact.
 
 USER: $ARGUMENTS
 
-Call handoff_session with the worker prompt and any clearly relevant files:
-\`handoff_session(prompt="...", files=["src/foo.ts", "src/bar.ts", ...])\``;
+Call fork_session with the worker prompt and clearly relevant files:
+\`fork_session(prompt="...", files=["src/foo.ts", "src/bar.ts", ...])\``;
 
 /**
- * Creates a handoff command manager.
+ * Creates a fork command manager.
  *
- * Handles registration of the /handoff command and processing of chat
- * messages to inject synthetic file parts for handoff sessions.
+ * Handles registration of the /fork-session command and fork session state
+ * events.
  */
-export function createHandoffCommandManager(
+export function createForkCommandManager(
   _ctx: PluginInput,
-  state: HandoffState,
+  state: ForkState,
   _processedSessions?: Set<string>,
 ) {
   /**
-   * Register the /handoff command in the OpenCode config.
+   * Register the /fork-session command in the OpenCode config.
    */
   function registerCommand(opencodeConfig: Record<string, unknown>): void {
     const configCommand = opencodeConfig.command as
@@ -46,8 +44,8 @@ export function createHandoffCommandManager(
         opencodeConfig.command = {};
       }
       (opencodeConfig.command as Record<string, unknown>)[COMMAND_NAME] = {
-        description: 'Create a focused handoff prompt for a new session',
-        template: HANDOFF_COMMAND_TEMPLATE,
+        description: 'Fork the orchestrator context into a worker session',
+        template: FORK_COMMAND_TEMPLATE,
       };
     }
   }
@@ -80,6 +78,4 @@ export function createHandoffCommandManager(
   };
 }
 
-export type HandoffCommandManager = ReturnType<
-  typeof createHandoffCommandManager
->;
+export type ForkCommandManager = ReturnType<typeof createForkCommandManager>;

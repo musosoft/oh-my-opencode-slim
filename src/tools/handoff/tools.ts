@@ -1,8 +1,8 @@
 /**
- * Tool definitions for handoff functionality.
+ * Tool definitions for fork functionality.
  *
  * Factory functions that create tool definitions with injected dependencies:
- * - createHandoffSessionTool: Create a new session with handoff prompt
+ * - createForkSessionTool: Create a fork worker session
  * - createReadSessionTool: Read conversation transcript from a session
  */
 
@@ -11,19 +11,19 @@ import { tool } from '@opencode-ai/plugin';
 import { extractSessionResult, promptWithTimeout } from '../../utils/session';
 import type { SubagentDepthTracker } from '../../utils/subagent-depth';
 import { buildSyntheticFileParts, parseFileReferences } from './files';
-import type { HandoffState } from './state';
+import type { ForkState } from './state';
 
 export type OpencodeClient = PluginInput['client'];
-const HANDOFF_TIMEOUT_MS = 5 * 60 * 1000;
+const FORK_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * Create the handoff_session tool.
+ * Create the fork_session tool.
  *
  * Takes the OpenCode client as a dependency for TUI and session operations.
  */
-export function createHandoffSessionTool(
+export function createForkSessionTool(
   ctx: PluginInput,
-  state: HandoffState,
+  state: ForkState,
   depthTracker?: SubagentDepthTracker,
 ): ToolDefinition {
   const client = ctx.client;
@@ -32,7 +32,7 @@ export function createHandoffSessionTool(
     description:
       'Run a child worker session and return its completion summary to the caller',
     args: {
-      prompt: tool.schema.string().describe('The generated handoff prompt'),
+      prompt: tool.schema.string().describe('The prompt for the fork worker'),
       files: tool.schema
         .array(tool.schema.string())
         .optional()
@@ -50,18 +50,18 @@ export function createHandoffSessionTool(
         context && typeof context === 'object' && 'sessionID' in context
           ? (context as { sessionID: string }).sessionID
           : 'unknown';
-      if (state.isHandoffSession(sessionID)) {
-        return 'Nested handoff is disabled: this session is already a handoff worker. Finish this worker and return its summary to the parent session instead.';
+      if (state.isForkSession(sessionID)) {
+        return 'Nested fork is disabled: this session is already a fork worker. Finish this worker and return its summary to the parent session instead.';
       }
       if (
         sessionID !== 'unknown' &&
         depthTracker &&
         depthTracker.getDepth(sessionID) + 1 > depthTracker.maxDepth
       ) {
-        return `Handoff worker blocked: max subagent depth ${depthTracker.maxDepth} would be exceeded.`;
+        return `Fork worker blocked: max subagent depth ${depthTracker.maxDepth} would be exceeded.`;
       }
 
-      const sessionReference = `Work on behalf of parent session ${sessionID}. When you lack specific information you can use read_session to get it.`;
+      const sessionReference = `You are a fork of parent orchestrator session ${sessionID}. Use the provided context from the parent. If needed, use read_session for source-session details.`;
       const files = new Set([
         ...parseFileReferences(args.prompt),
         ...(args.files ?? []).map((file) => file.replace(/^@/, '')),
@@ -80,7 +80,7 @@ export function createHandoffSessionTool(
           query: { directory },
           body: {
             parentID: sessionID === 'unknown' ? undefined : sessionID,
-            title: `Handoff worker from ${sessionID}`,
+            title: `Fork worker from ${sessionID}`,
           },
         });
 
@@ -88,7 +88,7 @@ export function createHandoffSessionTool(
           (session as { data?: { id?: string }; id?: string })?.data?.id ??
           (session as { data?: { id?: string }; id?: string })?.id;
         if (!childSessionID) {
-          throw new Error('Handoff worker session did not return an id');
+          throw new Error('Fork worker session did not return an id');
         }
         if (sessionID !== 'unknown' && depthTracker) {
           const registered = depthTracker.registerChild(
@@ -96,9 +96,7 @@ export function createHandoffSessionTool(
             childSessionID,
           );
           if (!registered) {
-            throw new Error(
-              'Handoff worker blocked: max subagent depth exceeded',
-            );
+            throw new Error('Fork worker blocked: max subagent depth exceeded');
           }
         }
         state.markSession(childSessionID, sessionID);
@@ -115,13 +113,13 @@ export function createHandoffSessionTool(
               parts: [
                 {
                   type: 'text',
-                  text: `${fullPrompt}\n\nDo the requested work. When finished, return a concise summary of what you did, files changed, validation run, and any remaining risks or follow-up. Let the user's prompt determine scope and emphasis.`,
+                  text: `${fullPrompt}\n\nDo the requested work. When finished, return a compact summary of what changed, validation run, and any remaining risks or follow-up.`,
                 },
                 ...(await buildSyntheticFileParts(directory, files)),
               ],
             },
           },
-          HANDOFF_TIMEOUT_MS,
+          FORK_TIMEOUT_MS,
         );
 
         const extraction = await extractSessionResult(client, childSessionID, {
@@ -129,15 +127,15 @@ export function createHandoffSessionTool(
           includeReasoning: false,
         });
         if (extraction.empty) {
-          throw new Error('Handoff worker returned no summary');
+          throw new Error('Fork worker returned no summary');
         }
 
         return [
           `task_id: ${childSessionID}`,
           '',
-          '<handoff_summary>',
+          '<fork_summary>',
           extraction.text,
-          '</handoff_summary>',
+          '</fork_summary>',
         ].join('\n');
       } finally {
         if (childSessionID) {
@@ -148,7 +146,7 @@ export function createHandoffSessionTool(
             });
             state.unmarkSession(childSessionID);
           } catch {
-            // Keep the handoff marker if abort fails; session.deleted cleanup
+            // Keep the fork marker if abort fails; session.deleted cleanup
             // will remove it when OpenCode eventually deletes the session.
           }
         }
@@ -235,11 +233,11 @@ function formatTranscript(
  */
 export function createReadSessionTool(
   client: OpencodeClient,
-  state: HandoffState,
+  state: ForkState,
 ): ToolDefinition {
   return tool({
     description:
-      "Read the conversation transcript from a previous session. Use this when you need specific information from the source session that wasn't included in the handoff summary.",
+      'Read the source-session transcript for a fork worker. Use this only when the fork prompt did not include a specific detail you need.',
     args: {
       sessionID: tool.schema
         .string()
@@ -264,11 +262,11 @@ export function createReadSessionTool(
         context && typeof context === 'object' && 'sessionID' in context
           ? (context as { sessionID?: string }).sessionID
           : undefined;
-      if (!callerSessionID || !state.isHandoffSession(callerSessionID)) {
-        return 'read_session is only available from handoff worker sessions.';
+      if (!callerSessionID || !state.isForkSession(callerSessionID)) {
+        return 'read_session is only available from fork worker sessions.';
       }
       if (state.sourceFor(callerSessionID) !== args.sessionID) {
-        return 'read_session can only read the source session for this handoff worker.';
+        return 'read_session can only read the source session for this fork worker.';
       }
 
       try {

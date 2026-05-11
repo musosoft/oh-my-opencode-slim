@@ -1,5 +1,5 @@
 /**
- * Tests for handoff file reference parsing.
+ * Tests for fork file reference parsing.
  */
 
 import { describe, expect, it } from 'bun:test';
@@ -77,7 +77,7 @@ describe('parseFileReferences', () => {
 
   it('should handle references with trailing punctuation', () => {
     // Note: The regex includes trailing punctuation as part of the path
-    // This is the vendored behavior from opencode-handoff
+    // This preserves the vendored parser behavior.
     const text = 'See @src/file.ts, @src/other.ts. And @src/more.ts!';
     const refs = parseFileReferences(text);
     // The regex captures the trailing punctuation, so these won't match
@@ -109,7 +109,7 @@ describe('FILE_REGEX', () => {
 
 describe('buildSyntheticFileParts', () => {
   it('loads readable files inside the workspace', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omos-handoff-files-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omos-fork-files-'));
     try {
       fs.writeFileSync(path.join(dir, 'file.ts'), 'const x = 1;\n');
 
@@ -124,9 +124,9 @@ describe('buildSyntheticFileParts', () => {
   });
 
   it('skips path traversal and symlinks outside the workspace', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omos-handoff-files-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omos-fork-files-'));
     const outside = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'omos-handoff-outside-'),
+      path.join(os.tmpdir(), 'omos-fork-outside-'),
     );
     try {
       fs.writeFileSync(path.join(outside, 'secret.txt'), 'secret\n');

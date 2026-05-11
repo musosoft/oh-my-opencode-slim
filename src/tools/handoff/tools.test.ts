@@ -3,15 +3,15 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { SubagentDepthTracker } from '../../utils/subagent-depth';
-import { createHandoffState } from './state';
-import { createHandoffSessionTool, createReadSessionTool } from './tools';
+import { createForkState } from './state';
+import { createForkSessionTool, createReadSessionTool } from './tools';
 
 function makeTempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'omos-handoff-tool-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'omos-fork-tool-'));
 }
 
-describe('handoff_session tool', () => {
-  test('runs a worker child session and returns its handoff summary', async () => {
+describe('fork_session tool', () => {
+  test('runs a worker child session and returns its fork summary', async () => {
     const directory = makeTempDir();
     try {
       fs.mkdirSync(path.join(directory, 'src'));
@@ -28,8 +28,8 @@ describe('handoff_session tool', () => {
         ],
       }));
       const sessionAbort = mock(async () => ({}));
-      const state = createHandoffState();
-      const tool = createHandoffSessionTool(
+      const state = createForkState();
+      const tool = createForkSessionTool(
         {
           directory,
           client: {
@@ -51,7 +51,7 @@ describe('handoff_session tool', () => {
       );
 
       expect(result).toContain('task_id: ses_new');
-      expect(result).toContain('<handoff_summary>');
+      expect(result).toContain('<fork_summary>');
       expect(result).toContain('Summary from worker');
       expect(sessionCreate).toHaveBeenCalledWith({
         responseStyle: 'data',
@@ -59,7 +59,7 @@ describe('handoff_session tool', () => {
         query: { directory },
         body: {
           parentID: 'ses_old',
-          title: 'Handoff worker from ses_old',
+          title: 'Fork worker from ses_old',
         },
       });
       expect(sessionPrompt).toHaveBeenCalledTimes(1);
@@ -77,7 +77,7 @@ describe('handoff_session tool', () => {
       expect(promptCall.body.parts[0]).toMatchObject({
         type: 'text',
         text: expect.stringContaining(
-          'Work on behalf of parent session ses_old',
+          'fork of parent orchestrator session ses_old',
         ),
       });
       expect(promptCall.body.parts).toContainEqual(
@@ -96,18 +96,18 @@ describe('handoff_session tool', () => {
     }
   });
 
-  test('blocks nested handoff calls from a handoff worker', async () => {
+  test('blocks nested fork calls from a fork worker', async () => {
     const directory = makeTempDir();
     try {
       let nestedResult = '';
-      const state = createHandoffState();
-      const tool = createHandoffSessionTool(
+      const state = createForkState();
+      const tool = createForkSessionTool(
         {
           directory,
           client: {
             session: {
               abort: mock(async () => ({})),
-              create: mock(async () => ({ data: { id: 'ses_handoff' } })),
+              create: mock(async () => ({ data: { id: 'ses_fork' } })),
               messages: mock(async () => ({
                 data: [
                   {
@@ -118,8 +118,8 @@ describe('handoff_session tool', () => {
               })),
               prompt: mock(async () => {
                 nestedResult = String(
-                  await tool.execute({ prompt: 'nested handoff' }, {
-                    sessionID: 'ses_handoff',
+                  await tool.execute({ prompt: 'nested fork' }, {
+                    sessionID: 'ses_fork',
                   } as any),
                 );
               }),
@@ -130,11 +130,11 @@ describe('handoff_session tool', () => {
         new SubagentDepthTracker(),
       );
 
-      await tool.execute({ prompt: 'outer handoff' }, {
+      await tool.execute({ prompt: 'outer fork' }, {
         sessionID: 'ses_old',
       } as any);
 
-      expect(nestedResult).toContain('Nested handoff is disabled');
+      expect(nestedResult).toContain('Nested fork is disabled');
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -159,7 +159,7 @@ describe('read_session tool', () => {
         },
       ],
     }));
-    const state = createHandoffState();
+    const state = createForkState();
     state.markSession('ses_worker', 'ses_old');
 
     const result = await createReadSessionTool(
@@ -174,7 +174,7 @@ describe('read_session tool', () => {
   });
 
   test('blocks reads outside the source session', async () => {
-    const state = createHandoffState();
+    const state = createForkState();
     state.markSession('ses_worker', 'ses_old');
     const messages = mock(async () => ({ data: [] }));
 

@@ -1,5 +1,5 @@
 /**
- * Tests for handoff vendor helpers.
+ * Tests for fork vendor helpers.
  */
 
 import { describe, expect, it } from 'bun:test';
