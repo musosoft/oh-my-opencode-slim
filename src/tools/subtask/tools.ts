@@ -61,7 +61,11 @@ export function createSubtaskTool(
         return `Subtask worker blocked: max subagent depth ${depthTracker.maxDepth} would be exceeded.`;
       }
 
-      const sessionReference = `Work on behalf of parent session ${sessionID}. When you lack specific information you can use read_session to get it.`;
+      const sessionReference = `You are a subtask worker spawned by parent session ${sessionID}.
+
+Your job is bounded: complete only the task below. Do not expand scope.
+If needed context is missing, use read_session to inspect the parent session.
+Do not spawn another subtask.`;
       const files = new Set([
         ...parseFileReferences(args.prompt),
         ...(args.files ?? []).map((file) => file.replace(/^@/, '')),
@@ -69,8 +73,8 @@ export function createSubtaskTool(
       const fileRefs =
         files.size > 0 ? [...files].map((f) => `@${f}`).join(' ') : '';
       const fullPrompt = fileRefs
-        ? `${sessionReference}\n\n${fileRefs}\n\n${args.prompt}`
-        : `${sessionReference}\n\n${args.prompt}`;
+        ? `${sessionReference}\n\nTASK:\n${args.prompt}\n\nFILES PROVIDED:\n${fileRefs}`
+        : `${sessionReference}\n\nTASK:\n${args.prompt}`;
 
       let childSessionID: string | undefined;
       try {
@@ -115,7 +119,7 @@ export function createSubtaskTool(
               parts: [
                 {
                   type: 'text',
-                  text: `${fullPrompt}\n\nDo the requested work. When finished, return a concise summary of what you did, files changed, validation run, and any remaining risks or follow-up. Let the user's prompt determine scope and emphasis.`,
+                  text: `${fullPrompt}\n\nInstructions:\n1. Understand the task and relevant file context.\n2. Make only necessary changes.\n3. Run the most relevant validation checks when practical.\n4. Stop when the requested task is done.\n\nReturn your final response in this format:\n\n<subtask_summary>\nStatus: completed | blocked | partial\n\nWhat changed:\n- ...\n\nFiles touched:\n- ...\n\nValidation:\n- ...\n\nRisks / follow-up:\n- ...\n</subtask_summary>`,
                 },
                 ...(await buildSyntheticFileParts(directory, files)),
               ],

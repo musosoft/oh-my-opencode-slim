@@ -21,7 +21,8 @@ describe('createSubtaskCommandManager', () => {
 
     const commands = config.command as Record<string, { template: string }>;
     expect(commands.subtask).toBeDefined();
-    expect(commands.subtask.template).toContain('subtask');
+    expect(commands.subtask.template).toContain('focused subtask worker');
+    expect(commands.subtask.template).toContain('Do not broaden it');
     expect(commands.subtask.template).toContain('$ARGUMENTS');
   });
 

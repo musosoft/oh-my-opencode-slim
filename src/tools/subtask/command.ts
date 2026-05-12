@@ -14,14 +14,23 @@ const COMMAND_NAME = 'subtask';
  * The subtask command template that guides the AI in generating subtask
  * prompts.
  */
-const SUBTASK_COMMAND_TEMPLATE = `Start a subtask worker session.
+const SUBTASK_COMMAND_TEMPLATE = `Start a focused subtask worker.
 
-Use the user's request below as the source of truth for what the worker should do. Keep scope and emphasis exactly aligned with the user's request.
+The user's request below is the full scope for the worker. Do not broaden it.
+Create a self-contained worker prompt that includes:
+- the exact objective
+- relevant context from this conversation
+- specific files/paths that matter
+- expected deliverables
+- validation the worker should run, if applicable
 
-USER: $ARGUMENTS
+USER REQUEST:
+$ARGUMENTS
 
-Call subtask with the worker prompt and any clearly relevant files:
-\`subtask(prompt="...", files=["src/foo.ts", "src/bar.ts", ...])\``;
+Then call the subtask tool:
+\`subtask(prompt="...", files=["src/foo.ts", "docs/bar.md"])\`
+
+Only include files that are clearly relevant. If no files are needed, omit files.`;
 
 /**
  * Creates a subtask command manager.

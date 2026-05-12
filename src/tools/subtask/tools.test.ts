@@ -74,12 +74,17 @@ describe('subtask tool', () => {
       expect(promptCall.path.id).toBe('ses_new');
       expect(promptCall.body.agent).toBe('orchestrator');
       expect(promptCall.body.tools).toBeUndefined();
+      const workerPrompt = String(promptCall.body.parts[0]?.text);
       expect(promptCall.body.parts[0]).toMatchObject({
         type: 'text',
         text: expect.stringContaining(
-          'Work on behalf of parent session ses_old',
+          'You are a subtask worker spawned by parent session ses_old',
         ),
       });
+      expect(workerPrompt).toContain('Your job is bounded');
+      expect(workerPrompt).toContain('TASK:');
+      expect(workerPrompt).toContain('FILES PROVIDED:');
+      expect(workerPrompt).toContain('<subtask_summary>');
       expect(promptCall.body.parts).toContainEqual(
         expect.objectContaining({ synthetic: true, type: 'text' }),
       );
