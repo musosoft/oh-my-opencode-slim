@@ -169,6 +169,7 @@ export function createTodoContinuationHook(
     cooldownMs?: number;
     autoEnable?: boolean;
     autoEnableThreshold?: number;
+    shouldSkipSession?: (sessionID: string) => boolean;
   },
 ): {
   tool: Record<string, unknown>;
@@ -199,6 +200,7 @@ export function createTodoContinuationHook(
   const cooldownMs = config?.cooldownMs ?? 3000;
   const autoEnable = config?.autoEnable ?? false;
   const autoEnableThreshold = config?.autoEnableThreshold ?? 4;
+  const shouldSkipSession = config?.shouldSkipSession;
   const requestSignatureBySession = new Map<string, string>();
 
   const state: ContinuationState = {
@@ -506,6 +508,13 @@ export function createTodoContinuationHook(
         return;
       }
 
+      if (shouldSkipSession?.(sessionID)) {
+        log(`[${HOOK_NAME}] Skipped: session owned by another continuation`, {
+          sessionID,
+        });
+        return;
+      }
+
       // Auto-enable check: if configured, not yet enabled, and enough
       // todos exist, automatically enable auto-continue.
       if (autoEnable && !state.enabled) {
@@ -796,6 +805,16 @@ export function createTodoContinuationHook(
     output: { parts: Array<{ type: string; text?: string }> },
   ): Promise<void> {
     if (input.command !== COMMAND_NAME) {
+      return;
+    }
+
+    if (shouldSkipSession?.(input.sessionID)) {
+      output.parts.length = 0;
+      output.parts.push(
+        createInternalAgentTextPart(
+          '[Auto-continue: skipped because an active /goal owns continuation for this session.]',
+        ),
+      );
       return;
     }
 

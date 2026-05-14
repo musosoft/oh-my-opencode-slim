@@ -16,6 +16,7 @@ import {
 } from './config/runtime-preset';
 import { CouncilManager } from './council';
 import { createDivoomManager } from './divoom/manager';
+import { createGoalManager } from './goal';
 import {
   createApplyPatchHook,
   createAutoUpdateCheckerHook,
@@ -140,6 +141,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
   let taskSessionManagerHook: ReturnType<typeof createTaskSessionManagerHook>;
   let interviewManager: ReturnType<typeof createInterviewManager>;
   let presetManager: ReturnType<typeof createPresetManager>;
+  let goalManager: ReturnType<typeof createGoalManager>;
   let divoomManager: ReturnType<typeof createDivoomManager>;
   let councilTools: Record<string, unknown>;
   let webfetch: ReturnType<typeof createWebfetchTool>;
@@ -299,14 +301,6 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         Object.keys(runtimeChains).length > 0,
     );
 
-    // Initialize todo-continuation hook (opt-in auto-continue for
-    // incomplete todos)
-    todoContinuationHook = createTodoContinuationHook(ctx, {
-      maxContinuations: config.todoContinuation?.maxContinuations ?? 5,
-      cooldownMs: config.todoContinuation?.cooldownMs ?? 3000,
-      autoEnable: config.todoContinuation?.autoEnable ?? false,
-      autoEnableThreshold: config.todoContinuation?.autoEnableThreshold ?? 4,
-    });
     taskSessionManagerHook = createTaskSessionManagerHook(ctx, {
       maxSessionsPerAgent: config.sessionManager?.maxSessionsPerAgent ?? 2,
       readContextMinLines: config.sessionManager?.readContextMinLines ?? 10,
@@ -316,6 +310,21 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
     });
     interviewManager = createInterviewManager(ctx, config);
     presetManager = createPresetManager(ctx, config);
+    goalManager = createGoalManager(ctx, {
+      maxCycles: config.goal?.maxCycles ?? 10,
+      cooldownMs: config.goal?.cooldownMs ?? 3000,
+      shouldManageSession: (sessionID) =>
+        sessionAgentMap.get(sessionID) === 'orchestrator',
+    });
+    // Initialize todo-continuation hook (opt-in auto-continue for
+    // incomplete todos). Goal mode owns its own continuation loop.
+    todoContinuationHook = createTodoContinuationHook(ctx, {
+      maxContinuations: config.todoContinuation?.maxContinuations ?? 5,
+      cooldownMs: config.todoContinuation?.cooldownMs ?? 3000,
+      autoEnable: config.todoContinuation?.autoEnable ?? false,
+      autoEnableThreshold: config.todoContinuation?.autoEnableThreshold ?? 4,
+      shouldSkipSession: (sessionID) => goalManager.hasActiveGoal(sessionID),
+    });
     divoomManager = createDivoomManager(config.divoom);
 
     subtaskState = createSubtaskState();
@@ -733,6 +742,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
       interviewManager.registerCommand(opencodeConfig);
       presetManager.registerCommand(opencodeConfig);
+      goalManager.registerCommand(opencodeConfig);
       subtaskCommandManager.registerCommand(opencodeConfig);
     },
 
@@ -783,6 +793,7 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
 
       // Todo-continuation: auto-continue orchestrator on incomplete todos
       await todoContinuationHook.handleEvent(input);
+      await goalManager.handleEvent(input);
 
       // Handle auto-update checking
       await autoUpdateChecker.event(input);
@@ -952,6 +963,15 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
         },
         output as { parts: Array<{ type: string; text?: string }> },
       );
+
+      await goalManager.handleCommandExecuteBefore(
+        input as {
+          command: string;
+          sessionID: string;
+          arguments: string;
+        },
+        output as { parts: Array<{ type: string; text?: string }> },
+      );
     },
 
     'chat.headers': chatHeadersHook['chat.headers'],
@@ -1076,6 +1096,9 @@ const OhMyOpenCodeLite: Plugin = async (ctx) => {
       });
 
       await todoContinuationHook.handleMessagesTransform({
+        messages: typedOutput.messages,
+      });
+      await goalManager.handleMessagesTransform({
         messages: typedOutput.messages,
       });
       await taskSessionManagerHook['experimental.chat.messages.transform'](

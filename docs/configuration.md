@@ -140,6 +140,8 @@ Presets can also be switched at runtime without restarting using the `/preset` c
 | `todoContinuation.cooldownMs` | integer | `3000` | Delay in ms before auto-continuing — gives user time to abort (0–30000) |
 | `todoContinuation.autoEnable` | boolean | `false` | Automatically enable auto-continue when session has enough todos |
 | `todoContinuation.autoEnableThreshold` | integer | `4` | Number of todos that triggers auto-enable (only used when `autoEnable` is true, 1–50) |
+| `goal.maxCycles` | integer | `10` | Max automatic goal continuations before blocking (1–50) |
+| `goal.cooldownMs` | integer | `3000` | Delay in ms before continuing a running goal (0–30000) |
 | `interview.maxQuestions` | integer | `2` | Max questions per interview round (1–10) |
 | `interview.outputFolder` | string | `"interview"` | Directory where interview markdown files are written (relative to project root) |
 | `interview.autoOpenBrowser` | boolean | `true` | Automatically open the interview UI in your default browser during interactive runs; suppressed in tests and CI |

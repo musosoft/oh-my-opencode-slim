@@ -252,6 +252,25 @@ export type TodoContinuationConfig = z.infer<
   typeof TodoContinuationConfigSchema
 >;
 
+export const GoalConfigSchema = z.object({
+  maxCycles: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(10)
+    .describe('Maximum automatic goal continuations before blocking'),
+  cooldownMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(30_000)
+    .default(3000)
+    .describe('Delay in ms before continuing a running goal'),
+});
+
+export type GoalConfig = z.infer<typeof GoalConfigSchema>;
+
 export const FailoverConfigSchema = z.object({
   enabled: z.boolean().default(true),
   timeoutMs: z.number().min(0).default(15000),
@@ -335,6 +354,7 @@ export const PluginConfigSchema = z
     sessionManager: SessionManagerConfigSchema.optional(),
     divoom: DivoomConfigSchema.optional(),
     todoContinuation: TodoContinuationConfigSchema.optional(),
+    goal: GoalConfigSchema.optional(),
     fallback: FailoverConfigSchema.optional(),
     council: CouncilConfigSchema.optional(),
   })

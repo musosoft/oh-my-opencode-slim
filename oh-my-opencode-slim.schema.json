@@ -599,6 +599,25 @@
         }
       }
     },
+    "goal": {
+      "type": "object",
+      "properties": {
+        "maxCycles": {
+          "default": 10,
+          "description": "Maximum automatic goal continuations before blocking",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "cooldownMs": {
+          "default": 3000,
+          "description": "Delay in ms before continuing a running goal",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      }
+    },
     "fallback": {
       "type": "object",
       "properties": {
