@@ -253,6 +253,7 @@ export class MultiplexerSessionManager {
         sessionId,
         tracked: this.sessions.has(sessionId),
         known: this.knownSessions.has(sessionId),
+        backgroundJobState: this.backgroundJobBoard?.get(sessionId)?.state,
       });
 
       await this.closeSession(sessionId, 'idle');
@@ -265,6 +266,13 @@ export class MultiplexerSessionManager {
     if (!sessionId) return;
 
     if (event.properties?.status?.type === 'idle') {
+      log('[multiplexer-session-manager] session status idle received', {
+        instanceId: this.instanceId,
+        sessionId,
+        tracked: this.sessions.has(sessionId),
+        known: this.knownSessions.has(sessionId),
+        backgroundJobState: this.backgroundJobBoard?.get(sessionId)?.state,
+      });
       await this.closeSession(sessionId, 'idle');
       return;
     }
@@ -275,6 +283,7 @@ export class MultiplexerSessionManager {
         sessionId,
         tracked: this.sessions.has(sessionId),
         known: this.knownSessions.has(sessionId),
+        backgroundJobState: this.backgroundJobBoard?.get(sessionId)?.state,
       });
       await this.respawnIfKnown(sessionId);
     }
@@ -290,6 +299,9 @@ export class MultiplexerSessionManager {
     log('[multiplexer-session-manager] session deleted, closing pane', {
       instanceId: this.instanceId,
       sessionId,
+      tracked: this.sessions.has(sessionId),
+      known: this.knownSessions.has(sessionId),
+      backgroundJobState: this.backgroundJobBoard?.get(sessionId)?.state,
     });
 
     await this.closeSession(sessionId, 'deleted');
@@ -430,6 +442,9 @@ export class MultiplexerSessionManager {
       sessionId,
       paneId: tracked.paneId,
       reason,
+      backgroundJobState: this.backgroundJobBoard?.get(sessionId)?.state,
+      parentId: tracked.parentId,
+      title: tracked.title,
     });
 
     const closePromise: Promise<void> = this.multiplexer

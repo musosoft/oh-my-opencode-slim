@@ -11,6 +11,7 @@ import {
   parseTaskStatusOutput,
   SLIM_INTERNAL_INITIATOR_MARKER,
 } from '../../utils';
+import { log } from '../../utils/logger';
 
 interface TaskArgs {
   description?: unknown;
@@ -252,13 +253,35 @@ export function createTaskSessionManagerHook(
     const status = parseTaskStatusOutput(output);
     if (!status) return undefined;
 
+    log('[task-session-manager] parsed task status output', {
+      taskID: status.taskID,
+      state: status.state,
+      timedOut: status.timedOut,
+      hasResult: Boolean(status.result),
+    });
+
     const updated = backgroundJobBoard.updateStatus({
       taskID: status.taskID,
       state: status.state,
       timedOut: status.timedOut,
       resultSummary: status.result,
     });
-    if (!updated) return undefined;
+    if (!updated) {
+      log('[task-session-manager] ignored status for unknown background job', {
+        taskID: status.taskID,
+        state: status.state,
+      });
+      return undefined;
+    }
+
+    log('[task-session-manager] background job status updated', {
+      taskID: updated.taskID,
+      alias: updated.alias,
+      parentSessionID: updated.parentSessionID,
+      state: updated.state,
+      terminalUnreconciled: updated.terminalUnreconciled,
+      timedOut: updated.timedOut,
+    });
 
     if (updated.terminalUnreconciled) {
       pendingManagedTaskIds.delete(updated.taskID);
@@ -305,6 +328,14 @@ export function createTaskSessionManagerHook(
 
     const updated = updateBackgroundJobFromOutput(part.text);
     if (!updated) return undefined;
+
+    log('[task-session-manager] processed injected background completion', {
+      taskID: updated.taskID,
+      alias: updated.alias,
+      parentSessionID: updated.parentSessionID,
+      state: updated.state,
+      occurrenceId,
+    });
 
     rememberProcessedInjectedCompletion(occurrenceId);
     return updated;
@@ -395,6 +426,11 @@ export function createTaskSessionManagerHook(
       .map((job) => job.taskID);
     if (taskIDs.length === 0) return;
 
+    log('[task-session-manager] terminal jobs injected for reconciliation', {
+      parentSessionID,
+      taskIDs,
+    });
+
     const existing =
       terminalJobsInjectedByParent.get(parentSessionID) ?? new Set<string>();
     for (const taskID of taskIDs) {
@@ -406,6 +442,11 @@ export function createTaskSessionManagerHook(
   function reconcileInjectedTerminalJobs(parentSessionID: string): void {
     const taskIDs = terminalJobsInjectedByParent.get(parentSessionID);
     if (!taskIDs) return;
+
+    log('[task-session-manager] reconciling injected terminal jobs', {
+      parentSessionID,
+      taskIDs: [...taskIDs],
+    });
 
     for (const taskID of taskIDs) {
       backgroundJobBoard.markReconciled(taskID);
@@ -516,12 +557,20 @@ export function createTaskSessionManagerHook(
       if (!pending || typeof output.output !== 'string') return;
       const launch = parseTaskLaunchOutput(output.output);
       if (launch) {
-        backgroundJobBoard.registerLaunch({
+        const record = backgroundJobBoard.registerLaunch({
           taskID: launch.taskID,
           parentSessionID: pending.parentSessionId,
           agent: pending.agentType,
           description: pending.label,
           objective: pending.label,
+        });
+        log('[task-session-manager] background task launch registered', {
+          taskID: record.taskID,
+          alias: record.alias,
+          parentSessionID: record.parentSessionID,
+          agent: record.agent,
+          description: record.description,
+          state: record.state,
         });
         backgroundJobBoard.addContext(
           launch.taskID,
@@ -617,6 +666,13 @@ export function createTaskSessionManagerHook(
     }): Promise<void> => {
       if (input.event.type === 'session.created') {
         const info = input.event.properties?.info;
+        log('[task-session-manager] session.created observed', {
+          sessionID: info?.id,
+          parentSessionID: info?.parentID,
+          managesParent: info?.parentID
+            ? options.shouldManageSession(info.parentID)
+            : false,
+        });
         if (
           info?.id &&
           info.parentID &&
@@ -635,6 +691,15 @@ export function createTaskSessionManagerHook(
       ) {
         const sessionId =
           input.event.properties?.info?.id ?? input.event.properties?.sessionID;
+        log('[task-session-manager] idle/status idle observed', {
+          sessionID: sessionId,
+          managesSession: sessionId
+            ? options.shouldManageSession(sessionId)
+            : false,
+          terminalJobsPending: sessionId
+            ? (terminalJobsInjectedByParent.get(sessionId)?.size ?? 0)
+            : 0,
+        });
         if (sessionId && options.shouldManageSession(sessionId)) {
           reconcileInjectedTerminalJobs(sessionId);
         }
@@ -647,6 +712,32 @@ export function createTaskSessionManagerHook(
         if (sessionId && options.shouldManageSession(sessionId)) {
           terminalJobsInjectedByParent.delete(sessionId);
         }
+
+        return;
+      }
+
+      if (
+        input.event.type === 'session.status' &&
+        (input.event.properties as { status?: { type?: string } } | undefined)
+          ?.status?.type === 'busy'
+      ) {
+        const sessionId =
+          input.event.properties?.info?.id ?? input.event.properties?.sessionID;
+        const before = sessionId
+          ? backgroundJobBoard.get(sessionId)
+          : undefined;
+        const updated = sessionId
+          ? backgroundJobBoard.markRunningFromLiveSession(sessionId)
+          : undefined;
+        log('[task-session-manager] busy/status busy observed', {
+          sessionID: sessionId,
+          managesSession: sessionId
+            ? options.shouldManageSession(sessionId)
+            : false,
+          previousState: before?.state,
+          previousTerminalState: before?.terminalState,
+          updatedState: updated?.state,
+        });
         return;
       }
 
@@ -654,6 +745,23 @@ export function createTaskSessionManagerHook(
       const sessionId =
         input.event.properties?.info?.id ?? input.event.properties?.sessionID;
       if (!sessionId) return;
+
+      log(
+        '[task-session-manager] session.deleted observed; clearing job state',
+        {
+          sessionID: sessionId,
+          deletedJob: backgroundJobBoard.get(sessionId)
+            ? {
+                state: backgroundJobBoard.get(sessionId)?.state,
+                parentSessionID:
+                  backgroundJobBoard.get(sessionId)?.parentSessionID,
+                alias: backgroundJobBoard.get(sessionId)?.alias,
+              }
+            : undefined,
+          childJobCount: backgroundJobBoard.list(sessionId).length,
+          managesSession: options.shouldManageSession(sessionId),
+        },
+      );
 
       backgroundJobBoard.drop(sessionId);
       backgroundJobBoard.clearParent(sessionId);

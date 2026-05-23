@@ -340,6 +340,71 @@ describe('BackgroundJobBoard', () => {
     });
   });
 
+  test('live busy session reopens stale cancelled jobs', () => {
+    const board = new BackgroundJobBoard();
+    board.registerLaunch({
+      taskID: 'ses_1',
+      parentSessionID: 'parent-1',
+      agent: 'explorer',
+    });
+    board.updateStatus({
+      taskID: 'ses_1',
+      state: 'cancelled',
+      resultSummary: 'upstream cancelled during compaction',
+      now: 100,
+    });
+
+    const updated = board.markRunningFromLiveSession('ses_1', 200);
+
+    expect(updated).toMatchObject({
+      state: 'running',
+      terminalUnreconciled: false,
+      timedOut: false,
+      updatedAt: 200,
+    });
+    expect(updated?.completedAt).toBeUndefined();
+    expect(updated?.terminalState).toBeUndefined();
+    expect(updated?.resultSummary).toBeUndefined();
+  });
+
+  test('live busy session reopens reconciled stale cancellations', () => {
+    const board = new BackgroundJobBoard();
+    board.registerLaunch({
+      taskID: 'ses_1',
+      parentSessionID: 'parent-1',
+      agent: 'explorer',
+    });
+    board.updateStatus({ taskID: 'ses_1', state: 'cancelled', now: 100 });
+    board.markReconciled('ses_1', 150);
+
+    const updated = board.markRunningFromLiveSession('ses_1', 200);
+
+    expect(updated).toMatchObject({
+      state: 'running',
+      terminalUnreconciled: false,
+      updatedAt: 200,
+    });
+    expect(updated?.terminalState).toBeUndefined();
+  });
+
+  test('live busy session does not reopen non-cancelled terminal jobs', () => {
+    const board = new BackgroundJobBoard();
+    board.registerLaunch({
+      taskID: 'ses_1',
+      parentSessionID: 'parent-1',
+      agent: 'fixer',
+    });
+    board.updateStatus({ taskID: 'ses_1', state: 'completed', now: 100 });
+
+    const updated = board.markRunningFromLiveSession('ses_1', 200);
+
+    expect(updated).toMatchObject({
+      state: 'completed',
+      terminalUnreconciled: true,
+      completedAt: 100,
+    });
+  });
+
   test('stale status updates cannot reopen already reconciled jobs', () => {
     const board = new BackgroundJobBoard();
     board.registerLaunch({

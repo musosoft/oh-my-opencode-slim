@@ -824,6 +824,33 @@ describe('task-session-manager hook', () => {
     );
   });
 
+  test('reopens stale cancelled child job when child session becomes busy', async () => {
+    const board = new BackgroundJobBoard();
+    const { hook } = createHook({ backgroundJobBoard: board });
+
+    board.registerLaunch({
+      taskID: 'child-1',
+      parentSessionID: 'parent-1',
+      agent: 'explorer',
+      description: 'read internals',
+    });
+    board.updateStatus({ taskID: 'child-1', state: 'cancelled' });
+    board.markReconciled('child-1');
+
+    await hook.event({
+      event: {
+        type: 'session.status',
+        properties: { sessionID: 'child-1', status: { type: 'busy' } },
+      },
+    });
+
+    expect(board.get('child-1')).toMatchObject({
+      state: 'running',
+      terminalUnreconciled: false,
+    });
+    expect(board.get('child-1')?.terminalState).toBeUndefined();
+  });
+
   test('does not reconcile terminal jobs before they are injected into a prompt', async () => {
     const board = new BackgroundJobBoard();
     const { hook } = createHook({ backgroundJobBoard: board });
@@ -940,7 +967,7 @@ describe('task-session-manager hook', () => {
     expect(resume.args.task_id).toBe('child-1');
   });
 
-  test('unreconciled or failed jobs do not resolve as reusable task sessions', async () => {
+  test('non-running jobs resolve as reusable task sessions even before reconciliation', async () => {
     const board = new BackgroundJobBoard();
     const { hook } = createHook({ backgroundJobBoard: board });
 
@@ -967,19 +994,22 @@ describe('task-session-manager hook', () => {
       { tool: 'task', sessionID: 'parent-1', callID: 'call-1' },
       unreconciled,
     );
-    expect(unreconciled.args.task_id).toBeUndefined();
+    expect(unreconciled.args.task_id).toBe('done-1');
 
     const failed = { args: { subagent_type: 'oracle', task_id: 'ora-2' } };
     await hook['tool.execute.before'](
       { tool: 'task', sessionID: 'parent-1', callID: 'call-2' },
       failed,
     );
-    expect(failed.args.task_id).toBeUndefined();
+    expect(failed.args.task_id).toBe('err-1');
 
     const messages = createMessages('parent-1', 'continue');
     await hook['experimental.chat.messages.transform']({}, messages);
-    expect(messages.messages[0].parts[0].text).not.toContain(
-      'err-1 / oracle / completed, reconciled',
+    expect(messages.messages[0].parts[0].text).toContain(
+      'ora-1 / done-1 / oracle / completed, unreconciled',
+    );
+    expect(messages.messages[0].parts[0].text).toContain(
+      'ora-2 / err-1 / oracle / error, reconciled',
     );
   });
 

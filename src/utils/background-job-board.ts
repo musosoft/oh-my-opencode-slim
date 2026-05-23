@@ -174,6 +174,39 @@ export class BackgroundJobBoard {
     });
   }
 
+  markRunningFromLiveSession(
+    taskID: string,
+    now = Date.now(),
+  ): BackgroundJobRecord | undefined {
+    const existing = this.jobs.get(taskID);
+    if (!existing) return undefined;
+
+    // Temporary mitigation for https://github.com/anomalyco/opencode/issues/28995:
+    // OpenCode can report task_status=cancelled after compaction while the child
+    // session keeps running. Trust live session.status=busy over that stale
+    // BackgroundJob terminal state, including after the stale cancellation was
+    // already injected/reconciled into the parent prompt.
+    const isStaleCancellation =
+      existing.state === 'cancelled' ||
+      (existing.state === 'reconciled' &&
+        existing.terminalState === 'cancelled');
+    if (!isStaleCancellation) return existing;
+
+    const updated: BackgroundJobRecord = {
+      ...existing,
+      state: 'running',
+      timedOut: false,
+      terminalUnreconciled: false,
+      updatedAt: now,
+      completedAt: undefined,
+      terminalState: undefined,
+      resultSummary: undefined,
+    };
+
+    this.jobs.set(taskID, updated);
+    return updated;
+  }
+
   markReconciled(
     taskID: string,
     now = Date.now(),
@@ -321,7 +354,7 @@ export class BackgroundJobBoard {
     return [
       '### Background Job Board',
       'SENTINEL: background-job-board-v2',
-      'Use task_status for running jobs. Reconcile terminal jobs before final response. Reuse only completed/reconciled sessions for the same specialist/context.',
+      'Use task_status for running jobs. Reconcile terminal jobs before final response. Reuse any non-running session for the same specialist/context.',
       '',
       '#### Active / Unreconciled',
       ...(active.length > 0
@@ -359,8 +392,12 @@ export class BackgroundJobBoard {
   }
 
   private formatReusableJob(job: BackgroundJobRecord): string {
+    const terminal = job.terminalState ?? terminalStateOf(job.state);
+    const reconciliation = job.terminalUnreconciled
+      ? 'unreconciled'
+      : 'reconciled';
     const lines = [
-      `- ${job.alias} / ${job.taskID} / ${job.agent} / completed, reconciled`,
+      `- ${job.alias} / ${job.taskID} / ${job.agent} / ${terminal ?? job.state}, ${reconciliation}`,
       `  Objective: ${job.objective || job.description}`,
     ];
     const context = formatContextFiles(
@@ -398,7 +435,7 @@ export function deriveTaskSessionLabel(input: {
 }
 
 function isReusable(job: BackgroundJobRecord): boolean {
-  return job.state === 'reconciled' && job.terminalState === 'completed';
+  return job.state !== 'running';
 }
 
 function terminalStateOf(
